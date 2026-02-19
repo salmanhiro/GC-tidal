@@ -1,8 +1,10 @@
 # Globular Cluster Mass Loss from Restricted N-body Simulation and Observation
 
-This repository compares observed GC tidal stream with restricted N-body simulation to recover the mass loss rate of GC. 
+This repository compares observed GC tidal stream with full and restricted N-body simulation to simulate the tidal disruption of GCs.
 
 ## Reference
+
+Vasiliev, E. (2019). AGAMA: action-based galaxy modelling architecture. Monthly Notices of the Royal Astronomical Society, 482(2), 1525-1544.
 
 Chen, Y., Li, H., & Gnedin, O. Y. (2025). Stellar streams reveal the mass loss of globular clusters (arXiv:2411.19899v2). arXiv. https://doi.org/10.48550/arXiv.2411.19899
 
