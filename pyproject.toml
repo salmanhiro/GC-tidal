@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gc-tidal"
+version = "0.1.0"
+description = "Tools for simulating tidal disruption of globular clusters."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "astropy",
+    "numpy",
+    "matplotlib",
+    "gala",
+    "python-unsio",
+    "pyfalcon @ git+https://github.com/GalacticDynamics-Oxford/pyfalcon.git",
+    "agama",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

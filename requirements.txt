@@ -1,1 +1,8 @@
 # Python dependencies
+astropy
+numpy
+matplotlib
+gala
+python-unsio
+git+https://github.com/GalacticDynamics-Oxford/pyfalcon.git
+agama
