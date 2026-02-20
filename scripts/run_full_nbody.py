@@ -11,7 +11,7 @@ Replace the placeholder agama call with your actual simulation logic.
 
 from streamcutter.host import build_host
 
-POT_INI = "configs/MWPotential2014.ini"
+POT_INI = "../configs/MWPotential2014.ini"
 
 
 def main():
