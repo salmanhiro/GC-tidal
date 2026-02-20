@@ -24,7 +24,7 @@ pip install -e .
 
 ```bash
 python scripts/basic.py
-# pyfalconstream version: 0.1.0
+# streamcutter version: 0.1.0
 # Basic check passed.
 ```
 

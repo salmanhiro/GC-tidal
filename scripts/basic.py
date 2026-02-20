@@ -1,4 +1,4 @@
-"""Basic example: import pyfalconstream and verify a function works.
+"""Basic example: import streamcutter and verify a function works.
 
 Install the package first:
     pip install -e .
@@ -7,9 +7,9 @@ Then run this script:
     python scripts/basic.py
 """
 
-import pyfalconstream
+import streamcutter
 
-version = pyfalconstream.get_version()
-print(f"pyfalconstream version: {version}")
-assert version == pyfalconstream.__version__, "get_version() mismatch"
+version = streamcutter.get_version()
+print(f"streamcutter version: {version}")
+assert version == streamcutter.__version__, "get_version() mismatch"
 print("Basic check passed.")

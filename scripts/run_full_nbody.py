@@ -5,11 +5,11 @@ Usage
     pip install -e .
     python scripts/run_full_nbody.py
 
-This script demonstrates importing pyfalconstream and building the host potential.
+This script demonstrates importing streamcutter and building the host potential.
 Replace the placeholder agama call with your actual simulation logic.
 """
 
-from pyfalconstream.host import build_host
+from streamcutter.host import build_host
 
 POT_INI = "configs/MWPotential2014.ini"
 
