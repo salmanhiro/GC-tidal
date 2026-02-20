@@ -1,114 +1,106 @@
 """Tests for the streamcutter.gc module."""
 
-import math
+import sys
+import types
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 import pytest
-from streamcutter.gc import GlobularCluster, _G, _kpc_km_per_s_to_Gyr
+
+# ---------------------------------------------------------------------------
+# Stub out agama before importing gc, since agama is not installed in CI
+# ---------------------------------------------------------------------------
+_agama_stub = types.ModuleType("agama")
+_agama_stub.setUnits = MagicMock()
+_agama_stub.GalaPotential = MagicMock()
+sys.modules["agama"] = _agama_stub
+
+from streamcutter.gc import GCParams, PotentialFactory  # noqa: E402
 
 
-class TestGlobularClusterInit:
-    def test_basic_creation(self):
-        gc = GlobularCluster(mass=1e5, r_half=0.005)
-        assert gc.mass == 1e5
-        assert gc.r_half == 0.005
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-    def test_default_n_stars(self):
-        gc = GlobularCluster(mass=1e5, r_half=0.005)
-        assert gc.n_stars == int(1e5)
-
-    def test_custom_n_stars(self):
-        gc = GlobularCluster(mass=1e5, r_half=0.005, n_stars=50000)
-        assert gc.n_stars == 50000
-
-    def test_invalid_mass_raises(self):
-        with pytest.raises(ValueError):
-            GlobularCluster(mass=0, r_half=0.005)
-        with pytest.raises(ValueError):
-            GlobularCluster(mass=-1e5, r_half=0.005)
-
-    def test_invalid_r_half_raises(self):
-        with pytest.raises(ValueError):
-            GlobularCluster(mass=1e5, r_half=0)
-        with pytest.raises(ValueError):
-            GlobularCluster(mass=1e5, r_half=-0.005)
+def _make_table(tmp_path, clusters):
+    """Write a minimal ecsv table with a 'Cluster' column and return its path."""
+    from astropy.table import QTable
+    tab = QTable({"Cluster": clusters})
+    p = tmp_path / "mw_gc_parameters_orbital_structural_time.ecsv"
+    tab.write(str(p), format="ascii.ecsv", overwrite=True)
+    return str(p)
 
 
-class TestTidalRadius:
-    def setup_method(self):
-        self.gc = GlobularCluster(mass=1e5, r_half=0.005)
+# ---------------------------------------------------------------------------
+# GCParams tests
+# ---------------------------------------------------------------------------
 
-    def test_known_value(self):
-        # r_t = r_orb * (M_gc / (3 * M_enc))^(1/3)
-        r_orb = 8.0          # kpc
-        m_enc = 6e10         # Msun
-        expected = r_orb * (1e5 / (3.0 * 6e10)) ** (1.0 / 3.0)
-        assert math.isclose(self.gc.tidal_radius(r_orb, m_enc), expected, rel_tol=1e-9)
+class TestGCParams:
+    def test_default_table_path(self):
+        gcp = GCParams()
+        assert gcp.table_path == "data/mw_gc_parameters_orbital_structural_time.ecsv"
 
-    def test_scales_with_r_orb(self):
-        m_enc = 6e10
-        rt1 = self.gc.tidal_radius(8.0, m_enc)
-        rt2 = self.gc.tidal_radius(16.0, m_enc)
-        assert math.isclose(rt2 / rt1, 2.0, rel_tol=1e-9)
+    def test_custom_table_path(self):
+        gcp = GCParams(table_path="some/other/path.ecsv")
+        assert gcp.table_path == "some/other/path.ecsv"
 
-    def test_scales_with_mass(self):
-        r_orb, m_enc = 8.0, 6e10
-        gc2 = GlobularCluster(mass=8e5, r_half=0.005)
-        rt1 = self.gc.tidal_radius(r_orb, m_enc)
-        rt2 = gc2.tidal_radius(r_orb, m_enc)
-        # mass ratio = 8 => r_t ratio = 8^(1/3) = 2
-        assert math.isclose(rt2 / rt1, 2.0, rel_tol=1e-9)
+    def test_get_all_cluster_names(self, tmp_path):
+        clusters = ["NGC104", "NGC5139", "NGC6752"]
+        path = _make_table(tmp_path, clusters)
+        gcp = GCParams(table_path=path)
+        assert gcp.get_all_cluster_names() == clusters
 
-    def test_invalid_r_orb_raises(self):
-        with pytest.raises(ValueError):
-            self.gc.tidal_radius(0, 6e10)
+    def test_get_row_returns_single_row(self, tmp_path):
+        clusters = ["NGC104", "NGC5139"]
+        path = _make_table(tmp_path, clusters)
+        gcp = GCParams(table_path=path)
+        row = gcp.get_row("NGC104")
+        assert len(row) == 1
+        assert row["Cluster"][0] == "NGC104"
 
-    def test_invalid_m_enc_raises(self):
-        with pytest.raises(ValueError):
-            self.gc.tidal_radius(8.0, 0)
-
-
-class TestVelocityDispersion:
-    def test_known_value(self):
-        mass = 1e5
-        r_half = 0.005
-        gc = GlobularCluster(mass=mass, r_half=r_half)
-        expected = math.sqrt(_G * mass / (6.0 * r_half))
-        assert math.isclose(gc.velocity_dispersion(), expected, rel_tol=1e-9)
-
-    def test_positive(self):
-        gc = GlobularCluster(mass=1e5, r_half=0.005)
-        assert gc.velocity_dispersion() > 0
-
-    def test_increases_with_mass(self):
-        gc1 = GlobularCluster(mass=1e5, r_half=0.005)
-        gc2 = GlobularCluster(mass=2e5, r_half=0.005)
-        assert gc2.velocity_dispersion() > gc1.velocity_dispersion()
-
-    def test_decreases_with_radius(self):
-        gc1 = GlobularCluster(mass=1e5, r_half=0.005)
-        gc2 = GlobularCluster(mass=1e5, r_half=0.010)
-        assert gc2.velocity_dispersion() < gc1.velocity_dispersion()
+    def test_get_row_unknown_cluster_raises(self, tmp_path):
+        path = _make_table(tmp_path, ["NGC104"])
+        gcp = GCParams(table_path=path)
+        with pytest.raises(ValueError, match="not found"):
+            gcp.get_row("Unknown")
 
 
-class TestHalfMassRelaxationTime:
-    def test_positive(self):
-        gc = GlobularCluster(mass=1e5, r_half=0.005, n_stars=100000)
-        assert gc.half_mass_relaxation_time() > 0
+# ---------------------------------------------------------------------------
+# PotentialFactory tests
+# ---------------------------------------------------------------------------
 
-    def test_known_value(self):
-        N = 100000
-        mass = 1e5
-        r_half = 0.005
-        gc = GlobularCluster(mass=mass, r_half=r_half, n_stars=N)
-        m_star = mass / N
-        expected = (
-            0.138
-            * math.sqrt(N)
-            * r_half ** 1.5
-            / (math.sqrt(_G * m_star) * math.log(0.11 * N))
-        ) * _kpc_km_per_s_to_Gyr
-        assert math.isclose(gc.half_mass_relaxation_time(), expected, rel_tol=1e-9)
+class TestPotentialFactory:
+    def test_init_calls_set_units(self):
+        _agama_stub.setUnits.reset_mock()
+        PotentialFactory()
+        _agama_stub.setUnits.assert_called_once_with(length=1, velocity=1, mass=1)
 
-    def test_increases_with_n_stars(self):
-        gc1 = GlobularCluster(mass=1e5, r_half=0.005, n_stars=10000)
-        gc2 = GlobularCluster(mass=1e5, r_half=0.005, n_stars=100000)
-        assert gc2.half_mass_relaxation_time() > gc1.half_mass_relaxation_time()
+    def test_custom_potentials_dir(self):
+        pf = PotentialFactory(potentials_dir="my_pots")
+        assert pf.potentials_dir == "my_pots"
+
+    def test_host_raises_if_ini_missing(self, tmp_path):
+        pf = PotentialFactory(potentials_dir=str(tmp_path))
+        with pytest.raises(FileNotFoundError):
+            pf.host("MWPotential2014")
+
+    def test_host_calls_gala_potential(self, tmp_path):
+        ini = tmp_path / "MWPotential2014.ini"
+        ini.write_text("[potential]\ntype=NFW\n")
+        _agama_stub.GalaPotential.reset_mock()
+        pf = PotentialFactory(potentials_dir=str(tmp_path))
+        pf.host("MWPotential2014")
+        _agama_stub.GalaPotential.assert_called_once_with(str(ini))
+
+    def test_satellite_plummer(self):
+        _agama_stub.GalaPotential.reset_mock()
+        PotentialFactory.satellite_plummer(mass=1e5, rhm=0.005)
+        _agama_stub.GalaPotential.assert_called_once_with(
+            type="Plummer", mass=1e5, scaleRadius=0.005
+        )
+
+    def test_satellite_king(self):
+        _agama_stub.GalaPotential.reset_mock()
+        PotentialFactory.satellite_king(mass=1e5, W0=5.0)
+        _agama_stub.GalaPotential.assert_called_once_with(
+            type="King", mass=1e5, W0=5.0
+        )
