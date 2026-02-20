@@ -66,6 +66,34 @@ class TestGCParams:
             gcp.get_row("Unknown")
 
 
+class TestFindCluster:
+    """Tests for GCParams.find_cluster (fuzzy name search)."""
+
+    def setup_method(self, _method):
+        # Use the real bundled table for these tests
+        self.gcp = GCParams()
+
+    def test_exact_name(self):
+        assert self.gcp.find_cluster("NGC_4590") == ["NGC_4590"]
+
+    def test_space_instead_of_underscore(self):
+        assert self.gcp.find_cluster("NGC 4590") == ["NGC_4590"]
+
+    def test_no_separator(self):
+        assert self.gcp.find_cluster("ngc4590") == ["NGC_4590"]
+
+    def test_case_insensitive(self):
+        assert self.gcp.find_cluster("ngc_4590") == ["NGC_4590"]
+
+    def test_no_match_returns_empty(self):
+        assert self.gcp.find_cluster("XXXXXXXXXXX") == []
+
+    def test_n_greater_than_one(self):
+        results = self.gcp.find_cluster("NGC", n=3, cutoff=0.5)
+        assert isinstance(results, list)
+        assert len(results) <= 3
+
+
 # ---------------------------------------------------------------------------
 # PotentialFactory tests
 # ---------------------------------------------------------------------------

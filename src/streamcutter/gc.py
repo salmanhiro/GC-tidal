@@ -1,6 +1,8 @@
 """GC parameters and potential utilities for globular cluster simulations."""
 
 from __future__ import annotations
+import difflib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,6 +14,12 @@ import agama
 _DEFAULT_TABLE = str(
     Path(__file__).parents[2] / "data" / "mw_gc_parameters_orbital_structural_time.ecsv"
 )
+
+
+def _normalize(name: str) -> str:
+    """Lower-case and strip non-alphanumeric characters for fuzzy matching."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
 
 # GC parameters & potentials
 
@@ -30,6 +38,43 @@ class GCParams:
     def get_all_cluster_names(self) -> list[str]:
         tab = QTable.read(self.table_path)
         return list(tab["Cluster"])
+
+    def find_cluster(self, query: str, n: int = 1, cutoff: float = 0.6) -> list[str]:
+        """Return up to *n* cluster names that best match *query*.
+
+        Matching is case-insensitive and ignores spaces, underscores, and
+        hyphens, so ``"NGC 4590"``, ``"ngc4590"``, and ``"NGC_4590"`` all
+        resolve to the same entry.  If no close match is found, an empty
+        list is returned.
+
+        Parameters
+        ----------
+        query : str
+            Free-form cluster name to search for.
+        n : int
+            Maximum number of matches to return (default 1).
+        cutoff : float
+            Similarity threshold in [0, 1] passed to
+            ``difflib.get_close_matches`` (default 0.6).
+
+        Returns
+        -------
+        list[str]
+            Matching cluster names from the catalogue, best match first.
+        """
+        names = self.get_all_cluster_names()
+        norm_query = _normalize(query)
+        norm_names = [_normalize(n_) for n_ in names]
+
+        # Exact match on normalised name takes priority
+        for raw, norm in zip(names, norm_names):
+            if norm == norm_query:
+                return [str(raw)]
+
+        # Fuzzy fallback via difflib
+        norm_to_raw = {norm: raw for norm, raw in zip(norm_names, names)}
+        close = difflib.get_close_matches(norm_query, norm_names, n=n, cutoff=cutoff)
+        return [str(norm_to_raw[c]) for c in close]
 
 
 class PotentialFactory:
