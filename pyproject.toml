@@ -14,7 +14,6 @@ dependencies = [
     "matplotlib",
     "gala",
     "python-unsio",
-    "pyfalcon @ git+https://github.com/GalacticDynamics-Oxford/pyfalcon.git",
     "agama",
 ]
 

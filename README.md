@@ -2,6 +2,32 @@
 
 This repository compares observed GC tidal stream with full and restricted N-body simulation to simulate the tidal disruption of GCs.
 
+## Installation
+
+Some dependencies (`pyfalcon` and `agama`) must be installed separately before installing this package.
+
+**1. Install pyfalcon** (requires a Fortran compiler and FFTW):
+
+```bash
+pip install --no-build-isolation git+https://github.com/GalacticDynamics-Oxford/pyfalcon.git
+```
+
+**2. Install agama** — follow the [agama installation guide](https://github.com/GalacticDynamics-Oxford/Agama).
+
+**3. Install the remaining dependencies and this package:**
+
+```bash
+pip install -e .
+```
+
+**4. Verify the installation:**
+
+```bash
+python scripts/basic.py
+# pyfalconstream version: 0.1.0
+# Basic check passed.
+```
+
 ## Reference
 
 Vasiliev, E. (2019). AGAMA: action-based galaxy modelling architecture. Monthly Notices of the Royal Astronomical Society, 482(2), 1525-1544.
