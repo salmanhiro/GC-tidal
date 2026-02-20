@@ -1,1 +1,7 @@
 # Python dependencies
+astropy
+numpy
+matplotlib
+gala
+python-unsio
+agama
