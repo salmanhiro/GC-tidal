@@ -37,10 +37,19 @@ sys.modules["agama"] = _agama_stub
 _pyfalcon_stub = types.ModuleType("pyfalcon")
 sys.modules.setdefault("pyfalcon", _pyfalcon_stub)
 
-# scipy: stub only the special sub-module used by dynfricAccel
-import scipy.special as _real_scipy_special  # noqa: E402
-_scipy_special_stub = MagicMock(spec=_real_scipy_special)
-_scipy_special_stub.erf.return_value  = 0.5
+# scipy: stub only the special sub-module used by dynfricAccel.
+# We do NOT import the real scipy.special (it may not be installed in CI).
+# astropy.table.operations calls importlib.util.find_spec("scipy") which reads
+# sys.modules["scipy"].__spec__; a plain ModuleType stub has __spec__=None and
+# raises ValueError, so we must set a real ModuleSpec on the stub.
+import importlib.machinery as _imlib
+_scipy_special_stub = MagicMock()
+_scipy_special_stub.erf.return_value = 0.5
+_scipy_special_stub.__spec__ = _imlib.ModuleSpec("scipy.special", None)
+_scipy_stub = types.ModuleType("scipy")
+_scipy_stub.special = _scipy_special_stub
+_scipy_stub.__spec__ = _imlib.ModuleSpec("scipy", None)
+sys.modules["scipy"] = _scipy_stub
 sys.modules["scipy.special"] = _scipy_special_stub
 
 # Remove any cached nbody import so it picks up the stubs above
