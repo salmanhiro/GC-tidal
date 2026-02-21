@@ -1,7 +1,12 @@
+"""N-body simulation helpers."""
+import astropy.units as u
 import numpy as np
+import matplotlib.pyplot as plt
 import agama
+import pyfalcon
 import scipy
 
+agama.setUnits(length=1, velocity=1, mass=1)  # 1 kpc, 1 km/s, 1 Msun
 
 def build_host(pot_ini):
     pot_host = agama.Potential(pot_ini)
