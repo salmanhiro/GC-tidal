@@ -1,7 +1,5 @@
 """N-body simulation helpers."""
-import astropy.units as u
 import numpy as np
-import matplotlib.pyplot as plt
 import agama
 import pyfalcon
 import scipy
