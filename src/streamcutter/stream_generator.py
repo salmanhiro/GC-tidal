@@ -154,3 +154,39 @@ def create_mock_stream_fardal15(create_ic_method, rng, time_total, num_particles
     xv_stream = np.vstack(agama.orbit(potential=pot_tot,
         ic=ic_stream, time=-time_seed if time_total<0 else time_total-time_seed, timestart=time_seed, trajsize=1)[:,1])
     return time_sat, orbit_sat, xv_stream, ic_stream
+
+def integrate_orbit(pot_host, posvel_sat, time_total, num_steps):
+        # Integrate the progenitor's orbit backward in time to get initial conditions for N-body
+        times, traj = agama.orbit(potential=pot_host, ic=posvel_sat, time=time_total, timestart=0.0, trajsize=num_steps)
+        return times, traj
+
+def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, posvel_sat, mass_sat, pot_sat=None, **kwargs):
+    """
+    Generate a tidal stream by simulating the orbital trajectory of a progenitor and creating particles released at its Lagrange points.
+
+    Parameters
+    ----------
+    rng : Random number generator instance used for initializing particle positions and velocities.
+    time_total : Total integration time for the progenitor's orbit in Gyr. A negative value integrates the orbit backward in time. Default is negative to simulate backward from the present day.
+    num_particles : Number of particles to generate for the tidal stream.
+    pot_host : The gravitational potential of the host galaxy.
+    posvel_sat : The initial 6D phase-space coordinates (position and velocity) of the progenitor at the present time.
+    mass_sat : The mass of the progenitor satellite.
+    pot_sat : The gravitational potential of the progenitor satellite. If `None`, the satellite's potential is neglected. (optional)
+    **kwargs : Additional parameters passed to `create_ic_method`. (optional)
+
+    Returns
+    -------
+    time_sat : 1D array of time points along the progenitor's orbit.
+    orbit_sat : 2D array of shape (num_steps, 6) representing the progenitor's orbit (position and velocity at each time step).
+    xv_stream : 2D array of shape (num_particles, 6) representing the 6D phase-space coordinates (position and velocity) of the particles in the tidal stream.
+    ic_stream : 2D array of shape (num_particles, 6) containing the initial conditions of the particles released from the progenitor at the Lagrange points.
+    """
+
+    tupd = time_total/50
+    tau = tupd/10
+    num_steps = int(abs(time_total) / tau)
+
+    # Integrate orbit backward to get initial conditions for N-body
+    time_sat, orbit_sat = integrate_orbit(pot_host, posvel_sat, time_total, num_steps)
+
