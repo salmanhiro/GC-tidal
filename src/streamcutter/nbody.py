@@ -8,22 +8,6 @@ import scipy
 
 agama.setUnits(length=1, velocity=1, mass=1)  # 1 kpc, 1 km/s, 1 Msun
 
-def build_host(pot_ini):
-    pot_host = agama.Potential(pot_ini)
-    df_host = agama.DistributionFunction(type="quasispherical", potential=pot_host)
-
-    # sigma(r) spline for DF (Chandrasekhar)
-    grid_r = np.logspace(-1, 2, 16)
-    grid_sig = agama.GalaxyModel(pot_host, df_host).moments(
-        np.column_stack((grid_r, grid_r * 0, grid_r * 0)),
-        dens=False, vel=False, vel2=True
-    )[:, 0] ** 0.5
-
-    logspl = agama.Spline(np.log(grid_r), np.log(grid_sig))
-    sigma = lambda r: np.exp(logspl(np.log(r)))
-    return pot_host, sigma
-
-
 def dynfricAccel(pot_host, sigma, pos, vel, mass):
     """Chandrasekhar dynamical friction acceleration for a point mass in host."""
     r = np.sqrt(np.sum(pos ** 2))
