@@ -160,7 +160,7 @@ def integrate_orbit(pot_host, posvel_sat, time_total, num_steps):
     times, traj = agama.orbit(potential=pot_host, ic=posvel_sat, time=time_total, timestart=0.0, trajsize=num_steps)
     return times, traj
 
-def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, posvel_sat, mass_sat, pot_sat=None, **kwargs):
+def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, pot_sat, posvel_sat, mass_sat, **kwargs):
     """
     Generate a tidal stream by simulating the orbital trajectory of a progenitor and creating particles released at its Lagrange points.
 
