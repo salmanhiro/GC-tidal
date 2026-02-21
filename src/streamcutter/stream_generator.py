@@ -9,7 +9,7 @@ import agama
 import pyfalcon
 
 from streamcutter.coordinate import get_observed_coords, get_galactocentric_coords  # noqa: F401
-
+from streamcutter.nbody import dynfricAccel, king_rt_over_scaleRadius, tidal_radius, make_satellite_ics  # noqa: F401
 
 def get_rotational_matrix(x, y, z, vx, vy, vz):
     """
@@ -160,7 +160,7 @@ def integrate_orbit(pot_host, posvel_sat, time_total, num_steps):
     times, traj = agama.orbit(potential=pot_host, ic=posvel_sat, time=time_total, timestart=0.0, trajsize=num_steps)
     return times, traj
 
-def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, pot_sat, posvel_sat, mass_sat, **kwargs):
+def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, posvel_sat, mass_sat, king_w0, sigma, **kwargs):
     """
     Generate a tidal stream by simulating the orbital trajectory of a progenitor and creating particles released at its Lagrange points.
 
@@ -182,7 +182,6 @@ def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, pot_sat, 
     xv_stream : 2D array of shape (num_particles, 6) representing the 6D phase-space coordinates (position and velocity) of the particles in the tidal stream.
     ic_stream : 2D array of shape (num_particles, 6) containing the initial conditions of the particles released from the progenitor at the Lagrange points.
     """
-
     forward_int_time = abs(time_total)
     tupd = forward_int_time / 50
     tau = tupd / 10
@@ -190,5 +189,87 @@ def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, pot_sat, 
 
     # Integrate orbit backward to get initial conditions for N-body
     time_sat, orbit_sat = integrate_orbit(pot_host, posvel_sat, time_total, num_steps)
-    return time_sat, orbit_sat
+    prog_w0_past = orbit_sat[-1]
 
+    ft = 1.0
+    eps = 0.01
+    seed = 0
+    KING_TRUNC = 0.9
+    RT_OVER_R0 = king_rt_over_scaleRadius(W0=king_w0, trunc=KING_TRUNC)
+
+    f_xv_ic, mass, initmass, r_out, r_tidal_a, r0 = make_satellite_ics(
+            ft, seed, mass_sat, num_particles, pot_host, prog_w0_past, king_w0, KING_TRUNC, RT_OVER_R0
+        )
+    
+    f_xv = f_xv_ic.copy()
+    f_center = prog_w0_past.copy()
+    f_bound = np.ones(len(mass), dtype=bool)
+
+    f_acc, f_pot = pyfalcon.gravity(f_xv[:, 0:3], agama.G * mass, eps)
+    f_acc += pot_host.force(f_xv[:, 0:3]) + dynfricAccel(pot_host, sigma, f_center[0:3], f_center[3:6], initmass)
+
+    nsub = int(round(tupd / tau))
+    if not np.isclose(nsub * tau, tupd):
+        raise ValueError(f"tupd={tupd} is not an integer multiple of tau={tau}")
+    
+    time = 0.0
+    times_out = [time]
+    mbound_out = [float(np.sum(mass[f_bound]))]
+    nbound_out = [int(np.sum(f_bound))]
+    Rgc_out = [float(np.linalg.norm(f_center[0:3]))]
+    rtidal_out = [float(tidal_radius(pot_host, Rgc_out[-1], mbound_out[-1]))]
+
+    t_traj = [time]
+    f_traj = [f_center.copy()]
+
+    while time < forward_int_time + 1e-15:
+        for _ in range(nsub):
+            # kick
+            f_xv[:, 3:6] += f_acc * (tau / 2)
+            # drift
+            f_xv[:, 0:3] += f_xv[:, 3:6] * tau
+            # self-gravity
+            f_acc, f_pot = pyfalcon.gravity(f_xv[:, 0:3], agama.G * mass, eps)
+            # host
+            f_acc += pot_host.force(f_xv[:, 0:3])
+            # DF uses currently bound mass
+            f_acc += dynfricAccel(
+                pot_host, sigma,
+                f_center[0:3], f_center[3:6],
+                float(np.sum(mass[f_bound]))
+            )
+            # kick
+            f_xv[:, 3:6] += f_acc * (tau / 2)
+            # update center + bound selection
+            f_center[0:3] += tau * f_center[3:6]
+            Rmax = 10.0
+            use = np.sum((f_xv[:, 0:3] - f_center[0:3]) ** 2, axis=1) < Rmax ** 2
+
+            prev = f_center.copy()
+            for _it in range(10):
+                f_center = np.median(f_xv[use], axis=0)
+                f_bound = (
+                    f_pot
+                    + 0.5 * np.sum((f_xv[:, 3:6] - f_center[3:6]) ** 2, axis=1)
+                ) < 0
+                if np.sum(f_bound) <= 1 or np.all(f_center == prev):
+                    break
+                use = f_bound & (np.sum((f_xv[:, 0:3] - f_center[0:3]) ** 2, axis=1) < Rmax ** 2)
+                prev = f_center.copy()
+
+            time += tau
+            t_traj.append(time)
+            f_traj.append(f_center.copy())
+
+        mb = float(np.sum(mass[f_bound]))
+        nb = int(np.sum(f_bound))
+        Rg = float(np.linalg.norm(f_center[0:3]))
+        rt = float(tidal_radius(pot_host, Rg, mb))
+
+        times_out.append(round(time, 12))
+        mbound_out.append(mb)
+        nbound_out.append(nb)
+        Rgc_out.append(Rg)
+        rtidal_out.append(rt)
+
+    return time_sat, orbit_sat, f_xv, f_xv_ic
