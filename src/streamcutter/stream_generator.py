@@ -156,9 +156,9 @@ def create_mock_stream_fardal15(create_ic_method, rng, time_total, num_particles
     return time_sat, orbit_sat, xv_stream, ic_stream
 
 def integrate_orbit(pot_host, posvel_sat, time_total, num_steps):
-        # Integrate the progenitor's orbit backward in time to get initial conditions for N-body
-        times, traj = agama.orbit(potential=pot_host, ic=posvel_sat, time=time_total, timestart=0.0, trajsize=num_steps)
-        return times, traj
+    # Integrate the progenitor's orbit backward in time to get initial conditions for N-body
+    times, traj = agama.orbit(potential=pot_host, ic=posvel_sat, time=time_total, timestart=0.0, trajsize=num_steps)
+    return times, traj
 
 def create_mock_stream_nbody(rng, time_total, num_particles, pot_host, posvel_sat, mass_sat, pot_sat=None, **kwargs):
     """
